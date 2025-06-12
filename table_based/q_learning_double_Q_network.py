@@ -16,7 +16,6 @@ from gymnasium.envs.toy_text.frozen_lake import generate_random_map
 is_slippery = True
 map_name = "8x8"
 
-# desc = ["SFFFFFFF", "FHFHFFFF", "FFFFFFFF", "HFFFFFHG","SFFFFFFF", "FHFFHFFH", "FFFHFFFF", "HFFFFFFG"]
 desc = None
 #指定随机种子，确保环境可控
 seed_value = 45
@@ -51,7 +50,6 @@ for episode in range(20000):
         new_state,reward,done,truncated,info = env.step(action)
         
         action_count+=1
-        
 
         max_action = np.argmax( Q_table[new_state,:] )
         #然后使用Target网络，求出得分，并计算负梯度

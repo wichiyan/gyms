@@ -1,120 +1,45 @@
-import gymnasium as gym
-import numpy as np
-from collections import deque
-import random
-from gymnasium.envs.toy_text.frozen_lake import generate_random_map
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 
+class NoisyLinear(nn.Module):
+    def __init__(self, in_features, out_features, sigma_init=0.017):
+        super(NoisyLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
 
-# 环境初始化
-desc=generate_random_map(size=12)
-env = gym.make("FrozenLake-v1", desc=desc,is_slippery=False, render_mode=None)
-n_states = env.observation_space.n
-n_actions = env.action_space.n
+        self.weight_mu = nn.Parameter(torch.empty(out_features, in_features))
+        self.weight_sigma = nn.Parameter(torch.full((out_features, in_features), sigma_init))
 
-# 超参数
-alpha = 0.1          # 学习率
-gamma = 0.99         # 折扣因子
-epsilon = 1.0        # 初始探索率
-epsilon_decay = 0.999
-epsilon_min = 0.01
-n_episodes = 25000
-max_steps = 100
-n_step = 1           # 多步TD的步数
+        self.register_buffer("weight_epsilon", torch.zeros(out_features, in_features))
 
-# 初始化 Q 表
-Q = np.random.uniform(size=(env.observation_space.n,env.action_space.n))/500
+        self.bias_mu = nn.Parameter(torch.empty(out_features))
+        self.bias_sigma = nn.Parameter(torch.full((out_features,), sigma_init))
+        self.register_buffer("bias_epsilon", torch.zeros(out_features))
 
-# 训练主循环
-for episode in range(n_episodes):
-    state, _ = env.reset()
-    done = False
+        self.reset_parameters()
+        self.reset_noise()
 
-    # 多步TD的轨迹缓存
-    state_buffer = deque()
-    action_buffer = deque()
-    reward_buffer = deque()
+    def reset_parameters(self):
+        bound = 1 / self.in_features**0.5
+        self.weight_mu.data.uniform_(-bound, bound)
+        self.bias_mu.data.uniform_(-bound, bound)
 
-    for t in range(max_steps):
-        # ε-贪婪策略选择动作
-        if random.random() < epsilon:
-            action = env.action_space.sample()
+    def reset_noise(self):
+        epsilon_in = self._scale_noise(self.in_features)
+        epsilon_out = self._scale_noise(self.out_features)
+        self.weight_epsilon.copy_(epsilon_out.ger(epsilon_in))
+        self.bias_epsilon.copy_(epsilon_out)
+
+    def _scale_noise(self, size):
+        x = torch.randn(size)
+        return x.sign() * x.abs().sqrt()
+
+    def forward(self, input):
+        if self.training:
+            weight = self.weight_mu + self.weight_sigma * self.weight_epsilon
+            bias = self.bias_mu + self.bias_sigma * self.bias_epsilon
         else:
-            action = np.argmax(Q[state])
-
-        # 执行动作
-        next_state, reward, done, truncated, _ = env.step(action)
-
-        # 存入轨迹
-        state_buffer.append(state)
-        action_buffer.append(action)
-        reward_buffer.append(reward)
-
-        if len(reward_buffer) >= n_step:
-            # 计算 n 步回报
-            G = 0
-            for i in range(n_step):
-                G += (gamma ** i) * reward_buffer[i]
-
-            # 加上 Q 值的 bootstrapping
-            if not done:
-                G += (gamma ** n_step) * np.max(Q[next_state])
-
-            # 多步 TD 更新
-            s_tau = state_buffer[0]
-            a_tau = action_buffer[0]
-            Q[s_tau, a_tau] += alpha * (G - Q[s_tau, a_tau])
-
-            # 移除最旧的一个
-            state_buffer.popleft()
-            action_buffer.popleft()
-            reward_buffer.popleft()
-
-        # 更新状态
-        state = next_state
-
-        if done:
-            # 清空剩余轨迹（注意：不完整轨迹也要更新）
-            while len(reward_buffer) > 0:
-                G = 0
-                for i in range(len(reward_buffer)):
-                    G += (gamma ** i) * reward_buffer[i]
-                if not done:
-                    G += (gamma ** len(reward_buffer)) * np.max(Q[state])
-                s_tau = state_buffer[0]
-                a_tau = action_buffer[0]
-                Q[s_tau, a_tau] += alpha * (G - Q[s_tau, a_tau])
-
-                state_buffer.popleft()
-                action_buffer.popleft()
-                reward_buffer.popleft()
-            break
-
-    # ε 衰减
-    epsilon = max(epsilon_min, epsilon * epsilon_decay)
-
-    # 打印进度
-    if (episode + 1) % 1000 == 0:
-        print(f"Episode {episode + 1}, ε: {epsilon:.3f}")
-
-# 训练结束
-print("训练完成！")
-
-# 评估策略的成功率
-env = gym.make("FrozenLake-v1", desc=desc,is_slippery=False, render_mode='human')
-
-test_episodes = 20
-successes = 0
-
-for _ in range(test_episodes):
-    state, _ = env.reset()
-    done = False
-    for _ in range(max_steps):
-        action = np.argmax(Q[state])
-        next_state, reward, done, truncated, _ = env.step(action)
-        state = next_state
-        if done:
-            if reward == 1.0:
-                successes += 1
-            break
-
-print(f"测试成功率: {successes / test_episodes:.2f}")
+            weight = self.weight_mu
+            bias = self.bias_mu
+        return F.linear(input, weight, bias)
