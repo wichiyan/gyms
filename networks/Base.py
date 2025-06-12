@@ -36,9 +36,8 @@ class NoisyLinear(nn.Module):
     #公式是y = y=(W+W_noise​⊙ϵ^W)x+(b+b_noise​⊙ϵ^b)，其中W和b是经典线性层权重，W_noise和b_noise是噪声权重和偏置，ϵ^W和ϵ^b是噪声的缩放因子
     其中W_noise 由epsilon_in和epsilon_out笛卡尔积生成，严格按照原始论文实现
     '''
-    def __init__(self, in_features, out_features, train=True,sigma_init=0.017):
+    def __init__(self, in_features, out_features,sigma_init=0.017):
         super().__init__()
-        self.train = train
         self.in_features = in_features
         self.out_features = out_features
 
@@ -74,7 +73,7 @@ class NoisyLinear(nn.Module):
 
     def forward(self, input):
         #只有在训练模式下，才会使用噪声参数
-        if self.train:
+        if self.training:
             weight = self.weight_mu + self.weight_sigma * self.weight_epsilon
             bias = self.bias_mu + self.bias_sigma * self.bias_epsilon
         else:
