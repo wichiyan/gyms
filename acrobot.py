@@ -6,36 +6,22 @@ import torch.functional as F
 import gymnasium as gym
 import numpy as np
 from gymnasium.wrappers import RecordVideo
+from networks.DQN import Dueling_DQN, Dueling_Noise_DQN
 
 #定义Q网络，输入是状态，输出是每个动作的Q值
-class QNetwork(nn.Module):
-    def __init__(self, state_size, action_size):
-        super().__init__()
-        
-        self.state_siize = state_size
-        self.action_size = action_size
-        
-        self.fc1 = nn.Linear(state_size, 128)
-        self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, action_size)
-
-    def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
-    
+   
 #创建环境
 env = gym.make('Acrobot-v1',render_mode="rgb_array")
 trigger = lambda t: t % 1000 == 0
 env = RecordVideo(env, video_folder="./save_videos1", episode_trigger=trigger, disable_logger=True)
 
 #创建Q网络
-Q_network = QNetwork(env.observation_space.shape[0], env.action_space.n)
+Q_network = Dueling_DQN(env.observation_space.shape[0], env.action_space.n)
 #定义损失函数和优化器
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(Q_network.parameters(), lr=0.01)
 exploration_rate = 1.0  # 初始探索率
+
 
 #开始训练
 num_episodes = 20000

@@ -30,10 +30,9 @@ class Base_Network(nn.Module,ABC):
             
 
 #定义线性噪声层，用于噪声网络内，或者其他网络内
-
 class NoisyLinear(nn.Module):
     ''''
-    #公式是y = y=(W+W_noise​⊙ϵ^W)x+(b+b_noise​⊙ϵ^b)，其中W和b是经典线性层权重，W_noise和b_noise是噪声权重和偏置，ϵ^W和ϵ^b是噪声的缩放因子
+    #公式是y = y=(W+W_noise​⊙ϵ^W)x+(b+b_noise​⊙ϵ^b)，其中W和b是经典线性层权重，W_noise和b_noise是噪声权重和偏置，ϵ^W和ϵ^b是噪声的缩放因子 \n
     其中W_noise 由epsilon_in和epsilon_out笛卡尔积生成，严格按照原始论文实现
     '''
     def __init__(self, in_features, out_features,sigma_init=0.017):

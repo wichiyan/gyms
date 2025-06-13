@@ -1,182 +1,279 @@
-# 基于Double Q-Network的FrozenLake强化学习实现
-# Double Q-Network算法通过维护两个Q表来减少Q学习中的过度估计问题
-# 一个Q表用于选择动作，另一个Q表用于评估动作的价值
-
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.distributions import Categorical
 import gymnasium as gym
 import numpy as np
+from gymnasium.wrappers import RecordVideo
 import time
-from gymnasium.envs.toy_text.frozen_lake import generate_random_map
-from collections import deque
-import random
-import matplotlib.pyplot as plt
 
-# 创建环境参数
-is_slippery = True  # 控制环境是否有随机性：True表示冰面滑，有随机性；False表示没有随机性
-map_name = "8x8"    # 地图大小，可选"4x4"或"8x8"
-desc = None         # 使用默认地图布局，也可以自定义地图
+# 设置随机种子以确保结果可复现
+torch.manual_seed(42)
+np.random.seed(42)
 
-# 创建FrozenLake环境
-env = gym.make("FrozenLake-v1", desc=desc, map_name=map_name, is_slippery=is_slippery)
-
-# 算法超参数
-discount_rate = 0.99    # 折扣因子，控制未来奖励的重要性
-lr = 0.1               # 学习率
-exploration_rate = 1.0  # 初始探索率
-min_exploration_rate = 0.01  # 最小探索率
-exploration_decay = 0.0005   # 探索率衰减系数
-target_update_rate = 0.6     # 目标网络更新率
-
-# 初始化两个Q表（Double Q-Network的核心）
-# Q1用于选择动作，Q2用于评估动作价值，两者交替更新
-Q1 = np.random.uniform(size=(env.observation_space.n, env.action_space.n)) / 500
-Q2 = np.random.uniform(size=(env.observation_space.n, env.action_space.n)) / 500
-
-# 用于记录训练过程中的数据
-episode_rewards = []  # 记录每个episode的累积奖励
-td_errors_history = []  # 记录每个episode的平均TD误差
-steps_history = []  # 记录每个episode的步数
-
-# 训练过程
-num_episodes = 30000
-for episode in range(num_episodes):
-    state, info = env.reset()  # 初始化环境，返回初始状态
-    td_errors = []  # 记录当前episode的TD误差
-    action_count = 0  # 记录当前episode的步数
-    done = False  # 游戏是否结束
-    episode_reward = 0  # 当前episode的累积奖励
+# 定义策略网络
+class ActorNetwork(nn.Module):
+    def __init__(self, state_dim, action_dim, hidden_dim=64):
+        super(ActorNetwork, self).__init__()
+        self.actor = nn.Sequential(
+            nn.Linear(state_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, action_dim),
+            nn.Softmax(dim=-1)
+        )
     
-    # 每个episode进行游戏，直到结束
-    while not done:
-        # ε-greedy策略选择动作
-        if np.random.uniform(0, 1) < exploration_rate:
-            # 探索：随机选择动作
-            action = env.action_space.sample()
-        else:
-            # 利用：选择Q1值最大的动作
-            action = np.argmax(Q1[state, :])
-        
-        # 执行动作，获取下一状态和奖励
-        new_state, reward, done, truncated, info = env.step(action)
-        episode_reward += reward  # 累积奖励
-        action_count += 1  # 步数加1
-        
-        # Double Q-learning更新（交替使用Q1和Q2）
-        if episode % 2 == 0:  # 偶数episode更新Q1
-            # 使用Q1选择最佳动作
-            best_action = np.argmax(Q1[new_state, :])
-            # 使用Q2评估该动作的价值
-            target = reward + discount_rate * Q2[new_state, best_action] * (1 - done)
-            # 计算TD误差
-            td_error = target - Q1[state, action]
-            # 更新Q1
-            Q1[state, action] = Q1[state, action] + lr * td_error
-        else:  # 奇数episode更新Q2
-            # 使用Q2选择最佳动作
-            best_action = np.argmax(Q2[new_state, :])
-            # 使用Q1评估该动作的价值
-            target = reward + discount_rate * Q1[new_state, best_action] * (1 - done)
-            # 计算TD误差
-            td_error = target - Q2[state, action]
-            # 更新Q2
-            Q2[state, action] = Q2[state, action] + lr * td_error
-        
-        td_errors.append(td_error)  # 记录TD误差
-        state = new_state  # 更新当前状态
+    def forward(self, state):
+        return self.actor(state)
+
+# 定义价值网络
+class CriticNetwork(nn.Module):
+    def __init__(self, state_dim, hidden_dim=64):
+        super(CriticNetwork, self).__init__()
+        self.critic = nn.Sequential(
+            nn.Linear(state_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, 1)
+        )
     
-    # 记录训练数据
-    episode_rewards.append(episode_reward)
-    td_errors_history.append(np.mean(td_errors))
-    steps_history.append(action_count)
-    
-    # 衰减探索率
-    exploration_rate = min_exploration_rate + \
-                      (1.0 - min_exploration_rate) * np.exp(-exploration_decay * episode)
-    
-    # 每隔2000个episode打印训练进度
-    if episode % 2000 == 0:
-        print(f'当前第{episode}个episode，此次episode均TD误差为：{np.mean(td_errors):.6f}，总共走{action_count}步')
+    def forward(self, state):
+        return self.critic(state)
 
-# 关闭训练环境
-env.close()
-
-# 合并两个Q表作为最终策略（取平均）
-final_Q = (Q1 + Q2) / 2
-
-# 保存训练好的Q表
-np.save('./models/q_double_network_frozenlake.npy', final_Q)
-
-# 可视化训练过程
-plt.figure(figsize=(15, 5))
-
-# 绘制TD误差变化
-plt.subplot(1, 3, 1)
-plt.plot(range(0, num_episodes, 100), td_errors_history[::100])
-plt.title('TD误差变化')
-plt.xlabel('Episode')
-plt.ylabel('平均TD误差')
-
-# 绘制步数变化
-plt.subplot(1, 3, 2)
-plt.plot(range(0, num_episodes, 100), steps_history[::100])
-plt.title('步数变化')
-plt.xlabel('Episode')
-plt.ylabel('步数')
-
-# 绘制奖励变化
-plt.subplot(1, 3, 3)
-plt.plot(range(0, num_episodes, 100), episode_rewards[::100])
-plt.title('奖励变化')
-plt.xlabel('Episode')
-plt.ylabel('累积奖励')
-
-plt.tight_layout()
-plt.savefig('./double_q_learning_training.png')
-
-# 测试训练好的智能体
-print("\n开始测试训练好的智能体...")
-
-# 创建测试环境（带可视化）
-env = gym.make("FrozenLake-v1", desc=desc, map_name=map_name, render_mode='human', is_slippery=is_slippery)
-
-# 测试参数
-test_episodes = 10  # 测试轮数
-results = []  # 记录测试结果
-
-# 进行测试
-for episode in range(test_episodes):
-    state, info = env.reset()  # 初始化环境
-    done = False
-    steps = 0
-    
-    # 使用训练好的策略进行游戏
-    while not done:
-        # 选择Q值最大的动作
-        action = np.argmax(final_Q[state, :])
+# 定义PPO算法
+class PPO:
+    def __init__(self, state_dim, action_dim, lr_actor=0.0003, lr_critic=0.001, gamma=0.99, 
+                 eps_clip=0.2, K_epochs=4):
+        self.gamma = gamma
+        self.eps_clip = eps_clip
+        self.K_epochs = K_epochs
         
-        # 执行动作
-        new_state, reward, done, truncated, info = env.step(action)
-        env.render()  # 渲染环境
-        steps += 1
-        state = new_state  # 更新状态
+        self.actor = ActorNetwork(state_dim, action_dim)
+        self.critic = CriticNetwork(state_dim)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=lr_actor)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=lr_critic)
         
-        # 如果游戏结束，记录结果
-        if done:
-            if reward > 0:
-                results.append(('win', steps))
-            else:
-                results.append(('lose', steps))
+        self.policy_old = ActorNetwork(state_dim, action_dim)
+        self.policy_old.load_state_dict(self.actor.state_dict())
+        
+        self.MseLoss = nn.MSELoss()
+    
+    def select_action(self, state, memory):
+        state = torch.FloatTensor(state)
+        action_probs = self.policy_old(state)
+        dist = Categorical(action_probs)
+        action = dist.sample()
+        
+        memory.states.append(state)
+        memory.actions.append(action)
+        memory.logprobs.append(dist.log_prob(action))
+        
+        return action.item()
+    
+    def evaluate(self, state, action):
+        action_probs = self.actor(state)
+        dist = Categorical(action_probs)
+        
+        action_logprobs = dist.log_prob(action)
+        dist_entropy = dist.entropy()
+        state_value = self.critic(state)
+        
+        return action_logprobs, torch.squeeze(state_value), dist_entropy
+    
+    def update(self, memory):
+        # 将收集的轨迹转换为张量
+        old_states = torch.stack(memory.states).detach()
+        old_actions = torch.stack(memory.actions).detach()
+        old_logprobs = torch.stack(memory.logprobs).detach()
+        old_rewards = torch.tensor(memory.rewards).detach()
+        old_dones = torch.tensor(memory.is_terminals).detach()
+        
+        # 计算折扣回报
+        returns = []
+        discounted_reward = 0
+        for reward, is_terminal in zip(reversed(memory.rewards), reversed(memory.is_terminals)):
+            if is_terminal:
+                discounted_reward = 0
+            discounted_reward = reward + (self.gamma * discounted_reward)
+            returns.insert(0, discounted_reward)
+        
+        returns = torch.tensor(returns)
+        
+        # 标准化回报
+        returns = (returns - returns.mean()) / (returns.std() + 1e-5)
+        
+        # 优化策略网络
+        for _ in range(self.K_epochs):
+            # 评估旧动作和状态
+            logprobs, state_values, dist_entropy = self.evaluate(old_states, old_actions)
             
-            # 短暂暂停，便于观察
-            time.sleep(0.5)
+            # 计算比率 (pi_theta / pi_theta__old)
+            ratios = torch.exp(logprobs - old_logprobs.detach())
+            
+            # 计算替代损失 (L^{CLIP})
+            advantages = returns - state_values.detach()
+            surr1 = ratios * advantages
+            surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
+            actor_loss = -torch.min(surr1, surr2).mean()
+            
+            # 计算价值损失
+            critic_loss = self.MseLoss(state_values, returns)
+            
+            # 总损失
+            loss = actor_loss + 0.5 * critic_loss - 0.01 * dist_entropy.mean()
+            
+            # 梯度下降
+            self.actor_optimizer.zero_grad()
+            self.critic_optimizer.zero_grad()
+            loss.backward()
+            self.actor_optimizer.step()
+            self.critic_optimizer.step()
+        
+        # 更新旧策略
+        self.policy_old.load_state_dict(self.actor.state_dict())
 
-# 计算并打印测试结果
-wins = len([result for result in results if result[0] == 'win'])
-win_steps = [result[1] for result in results if result[0] == 'win']
-mean_win_steps = np.mean(win_steps) if win_steps else 0
+# 定义内存类用于存储轨迹
+class Memory:
+    def __init__(self):
+        self.states = []
+        self.actions = []
+        self.logprobs = []
+        self.rewards = []
+        self.is_terminals = []
+    
+    def clear_memory(self):
+        self.states = []
+        self.actions = []
+        self.logprobs = []
+        self.rewards = []
+        self.is_terminals = []
 
-print(f'测试结果：共测试{test_episodes}轮，成功{wins}轮，成功率{wins/test_episodes:.2f}')
-if wins > 0:
-    print(f'成功时的平均步数：{mean_win_steps:.2f}')
+# 主训练函数
+def train():
+    # 创建环境
+    env_name = "LunarLander-v2"
+    env = gym.make(env_name)
+    state_dim = env.observation_space.shape[0]
+    action_dim = env.action_space.n
+    
+    # 设置超参数
+    max_episodes = 3000
+    max_timesteps = 1000
+    update_timestep = 4000
+    log_interval = 20
+    
+    # 初始化PPO和内存
+    ppo = PPO(state_dim, action_dim)
+    memory = Memory()
+    
+    # 记录训练进度
+    running_reward = 0
+    avg_length = 0
+    timestep = 0
+    
+    # 训练循环
+    for i_episode in range(1, max_episodes+1):
+        state, _ = env.reset()
+        for t in range(max_timesteps):
+            timestep += 1
+            
+            # 选择动作
+            action = ppo.select_action(state, memory)
+            
+            # 执行动作
+            next_state, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+            
+            # 存储奖励和是否终止
+            memory.rewards.append(reward)
+            memory.is_terminals.append(done)
+            
+            # 更新状态
+            state = next_state
+            
+            # 如果达到更新时间步或者回合结束，则更新策略
+            if timestep % update_timestep == 0:
+                ppo.update(memory)
+                memory.clear_memory()
+                timestep = 0
+            
+            running_reward += reward
+            
+            if done:
+                break
+        
+        avg_length += t
+        
+        # 记录日志
+        if i_episode % log_interval == 0:
+            avg_length = avg_length / log_interval
+            running_reward = running_reward / log_interval
+            
+            print(f'Episode {i_episode}\tavg length: {avg_length:.2f}\tavg reward: {running_reward:.2f}')
+            running_reward = 0
+            avg_length = 0
+            
+        # 如果平均奖励足够高，则保存模型并退出
+        if running_reward > 200:
+            print(f"Solved! Running reward is now {running_reward} and the last episode runs to {t} time steps!")
+            torch.save(ppo.policy_old.state_dict(), f'./checkpoints/PPO_{env_name}.pth')
+            break
+    
+    # 保存最终模型
+    torch.save(ppo.policy_old.state_dict(), f'./checkpoints/PPO_{env_name}_final.pth')
 
-# 关闭环境
-env.close()
+# 评估函数
+def evaluate(render=True):
+    env_name = "LunarLander-v2"
+    
+    if render:
+        env = gym.make(env_name, render_mode="human")
+        # 可选：录制视频
+        # env = RecordVideo(env, video_folder="./videos", episode_trigger=lambda x: True)
+    else:
+        env = gym.make(env_name)
+    
+    state_dim = env.observation_space.shape[0]
+    action_dim = env.action_space.n
+    
+    # 加载训练好的模型
+    policy = ActorNetwork(state_dim, action_dim)
+    policy.load_state_dict(torch.load(f'./checkpoints/PPO_{env_name}_final.pth'))
+    
+    n_episodes = 10
+    max_timesteps = 1000
+    
+    for i_episode in range(1, n_episodes+1):
+        state, _ = env.reset()
+        total_reward = 0
+        
+        for t in range(max_timesteps):
+            # 选择动作
+            state_tensor = torch.FloatTensor(state)
+            action_probs = policy(state_tensor)
+            dist = Categorical(action_probs)
+            action = dist.sample().item()
+            
+            # 执行动作
+            next_state, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+            
+            total_reward += reward
+            state = next_state
+            
+            if done:
+                break
+        
+        print(f'Episode {i_episode}\tReward: {total_reward:.2f}\tSteps: {t}')
+    
+    env.close()
+
+if __name__ == "__main__":
+    # 训练模型
+    train()
+    
+    # 评估模型
+    evaluate(render=True)
