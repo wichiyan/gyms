@@ -1,19 +1,24 @@
 import torch 
 from torch import nn
+import os
 from abc import ABC, abstractmethod
 import torch.nn.functional as F
 
 #定义神经网络基类，主要实现公共方法，并定义公共接口
-class Base_Network(nn.Module,ABC):
+class BaseNetwork(nn.Module,ABC):
     @abstractmethod
     def __init__(self):
-        pass
+        super().__init__()
         
     @abstractmethod
     def forward(self, x):
         pass
 
-    def save(self, path, weights_only=False):
+    def save(self, path, weights_only=True):
+        if not path.endswith('.pth'):
+            path += '.pth'
+        if os.path.dirname(path) and not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path))
         if weights_only:
             torch.save(self.state_dict(), path)
         else:
@@ -27,7 +32,7 @@ class Base_Network(nn.Module,ABC):
             # Load the entire model including architecture
             loaded_model = torch.load(path)
             self.__dict__.update(loaded_model.__dict__)
-            
+    
 
 #定义线性噪声层，用于噪声网络内，或者其他网络内
 class NoisyLinear(nn.Module):

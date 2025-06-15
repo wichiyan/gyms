@@ -1,11 +1,11 @@
 import torch 
 from torch import nn
-from .Base import Base_Network
-from .Base import NoisyLinear
+from .base import BaseNetwork
+from .base import NoisyLinear
 
 #定义经典DQN网络结构
-class DQN(Base_Network):
-    def __init__(self, state_size, hidden_dim,action_size):
+class DQN(BaseNetwork):
+    def __init__(self, state_size, action_size,hidden_dim = 128):
         super(DQN, self).__init__()
         self.fc1 = nn.Linear(state_size, 128)
         self.fc2 = nn.Linear(128, hidden_dim)
@@ -33,7 +33,7 @@ class DQN(Base_Network):
             self.__dict__.update(loaded_model.__dict__)
 
 
-class Dueling_DQN(nn.Module):
+class DuelingDQN(nn.Module):
     def __init__(self, state_size, action_size,hidden_dim = 128):
         super().__init__()
         #共享部分
@@ -66,7 +66,7 @@ class Dueling_DQN(nn.Module):
         return value + advantage - advantage.mean()  
 
 
-class Dueling_Noise_DQN(nn.Module):
+class DuelingNoiseDQN(nn.Module):
     #使用NoisyLinear层替代经典线性层，构建Dueling DQN网络结构
     def __init__(self, state_size, action_size,hidden_dim = 128):
         super().__init__()
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     # 测试Dueling_DQN网络结构
     state_size = 4  # 假设状态空间大小为4
     action_size = 2  # 假设动作空间大小为2
-    model = Dueling_Noise_DQN(state_size, action_size)
+    model = DuelingNoiseDQN(state_size, action_size)
     
     # 测试输入
     test_input = torch.randn(1, state_size)  # 随机生成一个状态输入

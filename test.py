@@ -123,7 +123,7 @@ class PPO:
             critic_loss = self.MseLoss(state_values, returns)
             
             # 总损失
-            loss = actor_loss + 0.5 * critic_loss - 0.01 * dist_entropy.mean()
+            loss = actor_loss + 0.5 *torch.tensor(critic_loss,dtype=torch.float32) - 0.01 * dist_entropy.mean()
             
             # 梯度下降
             self.actor_optimizer.zero_grad()
@@ -154,17 +154,18 @@ class Memory:
 # 主训练函数
 def train():
     # 创建环境
-    env_name = "LunarLander-v2"
-    env = gym.make(env_name)
-    state_dim = env.observation_space.shape[0]
-    action_dim = env.action_space.n
-    
+    env_name = "LunarLander-v3"
+    env = gym.make("LunarLander-v3", continuous=False, gravity=-10.0,
+                   enable_wind=False, wind_power=15.0, turbulence_power=1.5,render_mode="rgb_array")
+    trigger = lambda t: (t+1) % 1000 == 0
+    env = RecordVideo(env, video_folder="./save_videos_lunar_PPO", episode_trigger=trigger, disable_logger=True)
+
     # 设置超参数
-    max_episodes = 3000
-    max_timesteps = 1000
+    max_episodes = 6000
+    max_timesteps = 2000
     update_timestep = 4000
-    log_interval = 20
-    
+    log_interval = 100
+    state_dim,action_dim = env.observation_space.shape[0], env.action_space.n
     # 初始化PPO和内存
     ppo = PPO(state_dim, action_dim)
     memory = Memory()
@@ -185,6 +186,7 @@ def train():
             
             # 执行动作
             next_state, reward, terminated, truncated, _ = env.step(action)
+            
             done = terminated or truncated
             
             # 存储奖励和是否终止
@@ -201,10 +203,8 @@ def train():
                 timestep = 0
             
             running_reward += reward
-            
             if done:
                 break
-        
         avg_length += t
         
         # 记录日志
@@ -217,20 +217,20 @@ def train():
             avg_length = 0
             
         # 如果平均奖励足够高，则保存模型并退出
-        if running_reward > 200:
-            print(f"Solved! Running reward is now {running_reward} and the last episode runs to {t} time steps!")
-            torch.save(ppo.policy_old.state_dict(), f'./checkpoints/PPO_{env_name}.pth')
-            break
+        # if running_reward > 200:
+        #     print(f"Solved! Running reward is now {running_reward} and the last episode runs to {t} time steps!")
+        #     torch.save(ppo.policy_old.state_dict(), f'./checkpoints/PPO_{env_name}.pth')
+        #     # break
     
     # 保存最终模型
     torch.save(ppo.policy_old.state_dict(), f'./checkpoints/PPO_{env_name}_final.pth')
 
 # 评估函数
 def evaluate(render=True):
-    env_name = "LunarLander-v2"
+    env_name = "LunarLander-v3"
     
     if render:
-        env = gym.make(env_name, render_mode="human")
+        env =gym.make("LunarLander-v3", continuous=False, gravity=-10.0,enable_wind=False, wind_power=15.0, turbulence_power=1.5,render_mode="human")
         # 可选：录制视频
         # env = RecordVideo(env, video_folder="./videos", episode_trigger=lambda x: True)
     else:
@@ -239,13 +239,13 @@ def evaluate(render=True):
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.n
     
-    # 加载训练好的模型
+    #加载训练好的模型
     policy = ActorNetwork(state_dim, action_dim)
     policy.load_state_dict(torch.load(f'./checkpoints/PPO_{env_name}_final.pth'))
     
     n_episodes = 10
     max_timesteps = 1000
-    
+    results = []
     for i_episode in range(1, n_episodes+1):
         state, _ = env.reset()
         total_reward = 0
@@ -265,15 +265,22 @@ def evaluate(render=True):
             state = next_state
             
             if done:
+                if reward>0:
+                    results.append(('win'))
+                else:
+                    results.append(('lose'))
                 break
-        
-        print(f'Episode {i_episode}\tReward: {total_reward:.2f}\tSteps: {t}')
-    
+    #关闭环境
     env.close()
+    #打印模拟结果
+    wins =len( [ result[0] for result in results if result[0] =='win']  )
+    print(f'此次共模拟{n_episodes}轮，其中成功{wins}，成功率{round(wins/n_episodes,2)}')
+
 
 if __name__ == "__main__":
     # 训练模型
     train()
-    
     # 评估模型
     evaluate(render=True)
+    
+    print("Training and evaluation completed.")

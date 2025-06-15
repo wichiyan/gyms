@@ -17,27 +17,25 @@ def soft_update(target, source, tau):
             target_param.data.copy_(tau * source_param.data + (1.0 - tau) * target_param.data)
         
 
-def get_exploration_rate(episode, num_episodes,policy='exp' ,decay_rate= 0.0001,initial_rate=1.0, final_rate=0.01):
+def get_config(yaml_path, default_config=None):
     """
-    used in reinforcement learning to calculate the exploration rate (epsilon) for epsilon-greedy strategies. \n
-    This function supports both exponential and linear decay strategies. 
+    Load configuration from a YAML file. \n
+    If the file does not exist, return the default configuration.
+    
     Args:
-        episode (int): current episode number 
-        num_episodes (int): total episode number  
-        policy (str): exploration rate decay policy, option :'exp'、'linear',default is 'exp' 
-        decay_rate (float): decay rate,only used if policy is 'exp' 
-        initial_rate (float): initial exploration rate 
-        final_rate (float): final exploration rate, the minimum value of epsilon 
+        yaml_path (str): Path to the YAML configuration file.
+        default_config (dict, optional): Default configuration to return if the file does not exist.
+        
+    Returns:
+        dict: Loaded configuration.
     """
-    if policy == 'exp' or policy == 'exponential':
-        epsilon = final_rate + (initial_rate - final_rate) * torch.exp(-decay_rate * episode)
-        return epsilon
+    import os
+    import yaml
     
-    elif policy == 'linear':
-        decay_rate = (initial_rate - final_rate) / num_episodes
-        epsilon = max(final_rate,initial_rate - decay_rate * episode)
-        return epsilon
-    
+    if os.path.exists(yaml_path):
+        with open(yaml_path, 'r',encoding='utf-8') as file:
+            config = yaml.safe_load(file)
+        return config
     else:
-        raise ValueError("Unsupported exploration rate policy. Use 'exp' or 'linear'.")
-    
+        print(f"Configuration file {yaml_path} does not exist. Returning default configuration.")
+        return default_config if default_config is not None else {}
