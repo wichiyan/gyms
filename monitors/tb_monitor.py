@@ -8,6 +8,7 @@ class TBMonitor:
         self.agent = agent
         self.config = config
         self.name = name
+        self.run
         
         log_dir = config['monitor_logging'].get('log_dir',None)
         self.writer = SummaryWriter(log_dir+self.name)

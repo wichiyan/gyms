@@ -1,7 +1,7 @@
 
 import gymnasium as gym
 import os,sys
-
+from tqdm import tqdm
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(__dir__, '../')))
@@ -21,10 +21,9 @@ if __name__ == "__main__":
     agent.train()
     #创建监控器
     tb_monitor = TBMonitor(env,agent,config,name='dqn_base_Acrobot-v1')
-    
     #开始训练
     episodes = config['train']['episodes']
-    for episode in range(episodes):
+    for episode in tqdm(range(episodes)):
         #重置环境
         state, _ = env.reset()
         done = False
@@ -40,12 +39,6 @@ if __name__ == "__main__":
             
         #监控信息
         tb_monitor.monitor(info)
-        
-        #控制台打印信息    
-        if episode % 100 == 0:
-            #每10个回合打印一次
-            total_reward,total_step= info['episode']['r'],info['episode']['l']
-            print(f"Episode {episode + 1}/{episodes},Total Reward: {total_reward}, Steps: {total_step}")
         
     env.close()
     #保存智能体

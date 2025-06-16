@@ -16,6 +16,16 @@ class DQNAgent(BaseAgent):
         self.explore_shecduler_train = exploration_rate_scheduler(**config.get('explore_shedule_train', {}))
         self.explore_shecduler_eval = exploration_rate_scheduler(**config.get('explore_shedule_eval', {}))
 
+        #记录agent训练和验证时的信息
+        self.run_info = {
+            'train':{
+                'episode_losses':[],
+            },
+            'eval':{
+                
+            }
+        }
+        
     #选择动作
     def select_action(self, state ,episode,episodes):
         #将episode和episodes信息记录到agent，主要用于后续监控日志记录
@@ -39,6 +49,7 @@ class DQNAgent(BaseAgent):
         
     #更新策略网络    
     def update(self, state, action, reward, next_state, done):
+        
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
         next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0).to(self.device)
         action_tensor = torch.tensor(action).to(self.device)
@@ -57,6 +68,9 @@ class DQNAgent(BaseAgent):
         # 计算损失
         loss = self.criterion(current_q_value, target_q_value.float())
 
+        # 记录损失
+        self.run_info['train']['episode_losses'].append(loss.item())
+        
         # 更新网络
         self.optimizer.zero_grad()
         loss.backward()
@@ -73,7 +87,6 @@ class DQNAgent(BaseAgent):
         
         state_size = self.env.observation_space.shape[0]
         action_size = self.env.action_space.n
-        
         
         if network_type == 'base':
             self.Q_network = DQN(state_size, action_size, hidden_dim=hidden_dim)
