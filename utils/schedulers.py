@@ -6,13 +6,12 @@ class exploration_rate_scheduler:
     Supports both exponential and linear decay strategies.
     """
     
-    def __init__(self, epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=0.0001, policy='exp'):
+    def __init__(self, epsilon_start=1.0, epsilon_end=0.01, epsilon_decay=5*10**-4, policy='exp'):
         self.epsilon_start = epsilon_start
         self.epsilon_end = epsilon_end
         self.epsilon_decay = epsilon_decay
         self.policy = policy
         
-    
     def get_exploration_rate(self, episode, num_episodes):
         """
         Calculate the exploration rate based on the current episode and total episodes.
@@ -26,6 +25,7 @@ class exploration_rate_scheduler:
         """
         if self.policy == 'exp' or self.policy == 'exponential':
             epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode)
+            epsilon = max(self.epsilon_end,epsilon)
             return epsilon
         
         elif self.policy == 'linear':

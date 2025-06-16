@@ -17,22 +17,6 @@ class DQN(BaseNetwork):
         x = self.fc3(x)
         return x
 
-    def save(self, path, weights_only=False):
-        if weights_only:
-            torch.save(self.state_dict(), path)
-        else:
-            # Save the entire model including architecture
-            torch.save(self, path)
-
-    def load(self, path, weights_only=False):
-        if weights_only:
-            self.load_state_dict(torch.load(path))
-        else:
-            # Load the entire model including architecture
-            loaded_model = torch.load(path)
-            self.__dict__.update(loaded_model.__dict__)
-
-
 class DuelingDQN(nn.Module):
     def __init__(self, state_size, action_size,hidden_dim = 128):
         super().__init__()

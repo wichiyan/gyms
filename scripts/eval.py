@@ -26,7 +26,7 @@ if __name__ == "__main__":
     #创建智能体
     agent = DQNAgent(env, config)
     agent.eval()
-    agent.load_network(config['train'].get('load_path', 'dqn_agent.pth'), weights_only=True)
+    agent.load_network(config['train'].get('save_path', 'dqn_agent.pth'), weights_only=True)
     
     episodes = config['eval']['episodes']
     for episode in range(episodes):

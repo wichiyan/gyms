@@ -4,9 +4,8 @@ global:
   device: auto # Device to run the training on, can be 'cpu' or 'cuda' or 'auto'
 
 env:
-  id: CartPole-v1
+  id: Acrobot-v1
   
-
 network:
   type: base # Type of agent, can be 'base', 'dueling','dueling_noise', etc.
   hidden_dim: 128 # Number of hidden units in the MLP
@@ -14,29 +13,40 @@ network:
 
 agent:
   type: base 
-  gamma: 0.99
-  buffer_size: 100000
-  learning_starts: 1000
-  target_update_interval: 100
 
-explore_shedule:
-  policy: exp
-  epsilon_start: 1.0
-  epsilon_end: 0.01
-  epsilon_decay: 10000
 
 train:
   record_video: True # Whether to record videos of the environment
+  record_video_dir: ../runs/videos  #the root dir of the recorded videos
+  record_every_episode: 500 # how many episodes record video
+  render_mode: None # Whether to render_mode the environment during evaluation
+
   episodes: 10000 # Total number of episodes to train
   batch_size: 32
-  lr: 0.0003
-  save_path: ../checkpoints/dqn.pth # Path to save the trained model
+  lr: 0.001
+  save_path: ../checkpoints/dqn.pth # Path to save the final trained model
+
+explore_shedule_train:
+  policy: exp  #the epsilon decay policy, can be linear , exp，
+  epsilon_start: 1.0
+  epsilon_end: 0.01
+  epsilon_decay: 0.0005 # only used when policy is exp
 
 eval:
   episodes: 10 # Number of episodes to evaluate the agent
-  render: Human # Whether to render the environment during evaluation
+  record_video: False # Whether to record videos of the environment
+  record_video_dir: ../runs/videos/  #the root dir of the recorded videos
+  render_mode: Human # Whether to render the environment during evaluation
+
+explore_shedule_eval:
+  policy: exp  #the epsilon decay policy, can be linear , exp，
+  epsilon_start: 0.01
+  epsilon_end: 0.01
+
+monitor_logging:
+  log_dir: ../runs/tb_monitor/
+  monitot_interval: 1  #thr interval of episode to monitor 
 
 logging:
   log_dir: ./logs/
   save_interval: 1000
-

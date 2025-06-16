@@ -13,11 +13,23 @@ class DQNAgent(BaseAgent):
         self.env = env
         self.config = config
         self._init_network()
-        self.explore_shecduler = exploration_rate_scheduler(**config.get('explore_shedule', {}))
+        self.explore_shecduler_train = exploration_rate_scheduler(**config.get('explore_shedule_train', {}))
+        self.explore_shecduler_eval = exploration_rate_scheduler(**config.get('explore_shedule_eval', {}))
 
     #选择动作
     def select_action(self, state ,episode,episodes):
-        if np.random.rand() < self.explore_shecduler.get_exploration_rate(episode,episodes):
+        #将episode和episodes信息记录到agent，主要用于后续监控日志记录
+        self.episode = episode
+        self.episodes = episodes
+        
+        #根据模型是在训练还是测试阶段，使用不同的探索机制
+        if self.Q_network.training:
+            self.explore_rate = self.explore_shecduler_train.get_exploration_rate(episode,episodes)
+        else :
+            self.explore_rate = self.explore_shecduler_train.explore_shecduler_eval(episode,episodes)
+        
+        #随机选择动作
+        if np.random.rand() < self.explore_rate:
             return self.env.action_space.sample()  # 探索
         else:
             state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -25,6 +37,7 @@ class DQNAgent(BaseAgent):
                 q_values = self.Q_network(state_tensor)
             return torch.argmax(q_values).item()
         
+    #更新策略网络    
     def update(self, state, action, reward, next_state, done):
         state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
         next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0).to(self.device)
@@ -48,6 +61,7 @@ class DQNAgent(BaseAgent):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+    
     
     #根据网络类型和状态、动作空间大小设置网络、优化器及损失函数
     def _init_network(self):
@@ -87,14 +101,12 @@ class DQNAgent(BaseAgent):
         """
         self.Q_network.save(path, weights_only)
 
-    def load_network(self, path, weights_only=False):
+    def load_network(self, path, weights_only=True):
         """
         Load the Q-network from a file.
         
         Args:
             path (str): The file path from which the network will be loaded.
         """
-        if os.path.exists(path):
-            self.Q_network.load(path,weights_only)
-        else:
-            raise FileNotFoundError(f"Network file not found: {path}")
+
+        self.Q_network.load(path,weights_only)

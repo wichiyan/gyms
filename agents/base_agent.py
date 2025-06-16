@@ -29,6 +29,7 @@ class BaseAgent(ABC):
     def train(self):
         #遍历所有网络属性并调用它们的train方法
         #确保所有网络都处于训练模式
+        self.training = True
         for attr in self.__dict__:
             if isinstance(attr,BaseNetwork):
                 attr.train()
@@ -36,6 +37,7 @@ class BaseAgent(ABC):
     def eval(self):
         #遍历所有网络属性并调用它们的eval方法
         #确保所有网络都处于评估模式
+        self.training = False
         for attr in self.__dict__:
             if isinstance(attr,BaseNetwork):
                 attr.eval()

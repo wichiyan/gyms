@@ -25,9 +25,13 @@ class BaseNetwork(nn.Module,ABC):
             # Save the entire model including architecture
             torch.save(self, path)
 
-    def load(self, path, weights_only=False):
+    def load(self, path, weights_only=True):
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Network file not found: {path}")
+        
         if weights_only:
             self.load_state_dict(torch.load(path))
+            
         else:
             # Load the entire model including architecture
             loaded_model = torch.load(path)
