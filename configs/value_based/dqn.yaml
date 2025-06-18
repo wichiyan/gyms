@@ -32,7 +32,7 @@ eval:
   episodes: 10 # Number of episodes to evaluate the agent
   record_video: False # Whether to record videos of the environment
   record_video_dir: ../runs/videos/  #the root dir of the recorded videos
-  render_mode: Human # Whether to render the environment during evaluation
+  render_mode: human # Whether to render the environment during evaluation
 
 explore_shedule_eval:
   policy: exp  #the epsilon decay policy, can be linear , exp，

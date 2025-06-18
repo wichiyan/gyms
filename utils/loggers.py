@@ -49,12 +49,12 @@ class ColoredFormatter(logging.Formatter):
         return log_message
 
 
-class ProjectLogger:
+class Logger:
     """
     项目级别日志记录器，支持控制台和文件输出，可配置日志轮转
     """
     # 单例实例
-    _instances: Dict[str, 'ProjectLogger'] = {}
+    _instances: Dict[str, 'Logger'] = {}
     
     # 日志级别映射
     LEVEL_MAP = {
@@ -69,7 +69,7 @@ class ProjectLogger:
     DEFAULT_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     
     @classmethod
-    def get_instance(cls, name: str = 'project', **kwargs) -> 'ProjectLogger':
+    def get_instance(cls, name: str = 'project', **kwargs) -> 'Logger':
         """
         获取日志记录器实例（单例模式）
         
@@ -78,7 +78,7 @@ class ProjectLogger:
             **kwargs: 其他初始化参数
             
         Returns:
-            ProjectLogger实例
+            Logger实例
         """
         if name not in cls._instances:
             cls._instances[name] = cls(name=name, **kwargs)
@@ -290,7 +290,7 @@ class ProjectLogger:
 
 
 # 便捷函数
-def get_logger(name: str = 'project', **kwargs) -> ProjectLogger:
+def get_logger(name: str = 'project', **kwargs) -> Logger:
     """
     获取日志记录器实例
     
@@ -299,9 +299,9 @@ def get_logger(name: str = 'project', **kwargs) -> ProjectLogger:
         **kwargs: 其他参数
         
     Returns:
-        ProjectLogger实例
+        Logger实例
     """
-    return ProjectLogger.get_instance(name=name, **kwargs)
+    return Logger.get_instance(name=name, **kwargs)
 
 
 # 使用示例
