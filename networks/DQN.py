@@ -17,7 +17,7 @@ class DQN(BaseNetwork):
         x = self.fc3(x)
         return x
 
-class DuelingDQN(nn.Module):
+class DuelingDQN(BaseNetwork):
     def __init__(self, state_size, action_size,hidden_dim = 128):
         super().__init__()
         #共享部分
@@ -50,7 +50,7 @@ class DuelingDQN(nn.Module):
         return value + advantage - advantage.mean()  
 
 
-class DuelingNoiseDQN(nn.Module):
+class DuelingNoiseDQN(BaseNetwork):
     #使用NoisyLinear层替代经典线性层，构建Dueling DQN网络结构
     def __init__(self, state_size, action_size,hidden_dim = 128):
         super().__init__()

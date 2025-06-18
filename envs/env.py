@@ -14,25 +14,32 @@ class Env:
         '''
         super().__init__()
         
+        self.config = config
+        
         assert mode in ('train','eval'), f'mode must be one of  train or eval, not {mode}'
         env_kwagrs = copy.deepcopy(config['env'])
         #根据mode判断需要以什么配置参数创建环境
-        if config[mode].get('record_video', False) :
+        if self.config[mode].get('record_video', False) :
             env_kwagrs['render_mode'] ='rgb_array'
             self.env = self._make_env(**env_kwagrs)
             
-            video_dir = config[mode].get('record_video_dir','./videos')
-            record_every_episode = config[mode].get('record_every_episode',500)
+            video_dir = self.config[mode].get('record_video_dir','./videos')
+            record_every_episode = self.config[mode].get('record_every_episode',500)
             
             trigger = lambda t: (t+1) % record_every_episode == 0
             self.env = RecordVideo(self.env, video_folder=video_dir,episode_trigger=trigger, disable_logger=True)
         else:
-            render_mode = config[mode].get('render_mode', None)
+            render_mode = self.config[mode].get('render_mode', None)
             env_kwagrs['render_mode'] = render_mode
             self.env = self._make_env(**env_kwagrs)
         
         #封装统一记录episode统计信息    
         self.env = RecordEpisodeStatistics(self.env)
+    
+    def reset(self,seed=None):
+        global_seed = self.config['global'].get('seed',None)
+        inner_seed = seed if seed else global_seed
+        return self.env.reset(seed = inner_seed)
         
                 
     def step(self,action):

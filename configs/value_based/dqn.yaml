@@ -1,19 +1,15 @@
 
 global:
-  seed: 42 # Random seed for reproducibility
+  # seed: None # Random seed for reproducibility
   device: auto # Device to run the training on, can be 'cpu' or 'cuda' or 'auto'
 
 env:
   id: Acrobot-v1
-  
-network:
-  type: base # Type of agent, can be 'base', 'dueling','dueling_noise', etc.
-  hidden_dim: 128 # Number of hidden units in the MLP
-  optimizer: Adam # Optimizer to use for training， can be 'Adam', 'RMSprop', etc.
 
 agent:
-  type: base 
-
+  network_type: dueling # Type of agent, can be 'dqn', 'dueling','dueling_noise'
+  network_hidden_dim: 128 # Number of hidden units in the MLP
+  optimizer: Adam # Optimizer to use for training， can be 'Adam', 'RMSprop', etc.
 
 train:
   record_video: True # Whether to record videos of the environment
@@ -44,9 +40,9 @@ explore_shedule_eval:
   epsilon_end: 0.01
 
 monitor_logging:
-  log_dir: ../runs/tb_monitor/
-  monitot_interval: 1  #thr interval of episode to monitor 
+  log_dir: ../runs/tb_monitor/  #the log_dir for the monior to save logs
+  monitor_interval: 1  #thr interval of episode to monitor 
 
 logging:
   log_dir: ./logs/
-  save_interval: 1000
+  log_interval: 1000

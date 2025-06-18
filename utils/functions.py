@@ -1,5 +1,6 @@
 
 import torch
+from box import Box
 
 def soft_update(target, source, tau):
     """
@@ -35,7 +36,9 @@ def get_config(yaml_path, default_config=None):
     if os.path.exists(yaml_path):
         with open(yaml_path, 'r',encoding='utf-8') as file:
             config = yaml.safe_load(file)
-        return config
     else:
-        print(f"Configuration file {yaml_path} does not exist. Returning default configuration.")
-        return default_config if default_config is not None else {}
+        raise ValueError(f"Configuration file {yaml_path} does not exist. Returning default configuration.")
+    
+    config = Box(config)
+    
+    return config

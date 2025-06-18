@@ -10,11 +10,11 @@ from agents.value_based_agents import DQNAgent
 from utils import functions
 
 def is_successful_episode(total_reward, terminated, truncated, threshold=500):
-    if truncated:
-        return True  # 撑满最大步数
     if terminated:
+        return True  # 成功
+    if truncated:
         return False  # 中途失败
-    return total_reward >= threshold  # 也可以用总reward判断
+    # return total_reward >= threshold  # 也可以用总reward判断
 
 if __name__ == "__main__":
     

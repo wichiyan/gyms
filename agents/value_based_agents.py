@@ -76,29 +76,30 @@ class DQNAgent(BaseAgent):
         loss.backward()
         self.optimizer.step()
     
+        return loss.item()
     
     #根据网络类型和状态、动作空间大小设置网络、优化器及损失函数
     def _init_network(self):
         #设置网络类型
-        network_config = self.config.get('network', {})
-        network_type = network_config.get('type', 'base')
-        hidden_dim = network_config.get('hidden_dim', 128)
-        lr = network_config.get('lr', 0.001)
+        agent_config = self.config.get('agent', {})
+        network_type = agent_config.get('network_type', 'dqn')
+        hidden_dim = agent_config.get('hidden_dim', 128)
+        lr = self.config['train'].get('lr', 0.001)
         
         state_size = self.env.observation_space.shape[0]
         action_size = self.env.action_space.n
         
-        if network_type == 'base':
+        if network_type == 'dqn':
             self.Q_network = DQN(state_size, action_size, hidden_dim=hidden_dim)
         elif network_type == 'dueling':
             self.Q_network = DuelingDQN(state_size, action_size, hidden_dim=hidden_dim)
         elif network_type == 'dueling_noise':
             self.Q_network = DuelingNoiseDQN(state_size, action_size, hidden_dim=hidden_dim)
         else:
-            raise ValueError(f"Unknown network type: {network_type}")
+            raise ValueError(f"Unknown network type: {network_type},can be dqn,dueling,dueling_noise")
         
         #设置优化器和损失函数
-        optim_name = self.config['network'].get('optimizer', 'Adam')
+        optim_name = agent_config.get('optimizer', 'Adam')
         self.optimizer = getattr(torch.optim,optim_name)\
                                     (self.Q_network.parameters(), lr=lr)
 
@@ -123,3 +124,4 @@ class DQNAgent(BaseAgent):
         """
 
         self.Q_network.load(path,weights_only)
+

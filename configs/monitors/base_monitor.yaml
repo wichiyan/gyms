@@ -1,0 +1,25 @@
+
+#以下是基础版monitor监控指标配置文件，会基于以下配置文件初始化Runinfo，然后将该对象传给agent等实体，具体写入对应监控指标
+# 暂时不用
+global:
+  seed: 42 # Random seed for reproducibility
+  device: auto # Device to run the training on, can be 'cpu' or 'cuda' or 'auto'
+
+env:
+  id: Acrobot-v1
+
+network:
+  type: base # Type of agent, can be 'base', 'dueling','dueling_noise', etc.
+  hidden_dim: 128 # Number of hidden units in the MLP
+  optimizer: Adam # Optimizer to use for training， can be 'Adam', 'RMSprop', etc.
+
+train:
+  record_video: True # Whether to record videos of the environment
+  record_video_dir: ../runs/videos  #the root dir of the recorded videos
+  record_every_episode: 500 # how many episodes record video
+  render_mode: None # Whether to render_mode the environment during evaluation
+
+  episodes: 10000 # Total number of episodes to train
+  batch_size: 32
+  lr: 0.001
+  save_path: ../checkpoints/dqn.pth # Path to save the final trained model
