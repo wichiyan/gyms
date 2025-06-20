@@ -12,9 +12,10 @@ class DQNAgent(BaseAgent):
         super().__init__(config,**kwargs)
         self.env = env
         self.config = config
+        self.use_greedy = self._use_greedy()
         self._init_network()
-        self.explore_shecduler_train = exploration_rate_scheduler(**config.get('explore_shedule_train', {}))
-        self.explore_shecduler_eval = exploration_rate_scheduler(**config.get('explore_shedule_eval', {}))
+        self.explore_scheduler_train = exploration_rate_scheduler(**config.get('explore_scheduler_train', {}))
+        self.explore_scheduler_eval = exploration_rate_scheduler(**config.get('explore_scheduler_eval', {}))
 
         #记录agent训练和验证时的信息
         self.run_info = {
@@ -32,17 +33,21 @@ class DQNAgent(BaseAgent):
         self.episode = episode
         self.episodes = episodes
         
+        #如果不使用greedy策略，则直接将探索率设置为0
+        if not self.use_greedy:
+            self.explore_rate = 0
+        
         #根据模型是在训练还是测试阶段，使用不同的探索机制
         if self.Q_network.training:
-            self.explore_rate = self.explore_shecduler_train.get_exploration_rate(episode,episodes)
+            self.explore_rate = self.explore_scheduler_train.get_exploration_rate(episode,episodes)
         else :
-            self.explore_rate = self.explore_shecduler_train.explore_shecduler_eval(episode,episodes)
+            self.explore_rate = self.explore_scheduler_eval.get_exploration_rate(episode,episodes)
         
         #随机选择动作
         if np.random.rand() < self.explore_rate:
             return self.env.action_space.sample()  # 探索
         else:
-            return self.get_max_action(state)
+            return self._get_max_action(state)
         
     #更新策略网络    
     def update(self, state, action, reward, next_state, done):
@@ -78,10 +83,16 @@ class DQNAgent(BaseAgent):
     
         return loss.item()
 
+    #判断是否使用greedy策略
+    def _use_greedy(self):
+        if self.training:
+            return self.config['train']['explore_scheduler_train']['use_greedy']
+        else:
+            return self.config['eval']['explore_scheduler_eval']['use_greedy']
     
     #获取最大Q值对应动作
-    def get_max_action(self,state):
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
+    def _get_max_action(self,state):
+        state_tensor = torch.tensor(state,dtype=torch.float32).unsqueeze(0).to(self.device)
         with torch.no_grad():
             q_values = self.Q_network(state_tensor)
         return torch.argmax(q_values).item() 
@@ -160,7 +171,7 @@ class DoubleDQNAgent(DQNAgent):
         with torch.no_grad():
             #先使用Q网络，算出s_t+1时最大动作
             if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
-            max_action = self.get_max_action(next_state_tensor)
+            max_action = self._get_max_action(next_state_tensor)
             
             #然后使用目标网络，算出在s_t+1时，以上动作的Q值，如果是噪声网络，就先重置噪声
             if self.network_type == 'dueling_noise' : self.target_network.reset_noise()
@@ -214,7 +225,6 @@ class DoubleDQNAgent(DQNAgent):
         tau = self.config['train']['tau']
         for target_param, param in zip(self.target_network.parameters(), self.Q_network.parameters()):
             target_param.data.copy_(tau * param.data + (1.0 - tau) * target_param.data)
-
 
     def train(self):
         #重载积累的train方法，因为双Q网络，只需要让Q网络处于训练状态，target网络不需要

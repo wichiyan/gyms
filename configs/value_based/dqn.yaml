@@ -7,7 +7,7 @@ env:
   id: Acrobot-v1
 
 agent:
-  network_type: dqn # Type of agent, can be 'dqn', 'dueling','dueling_noise'
+  network_type: dueling # Type of agent, can be 'dqn', 'dueling','dueling_noise'
   network_hidden_dim: 128 # Number of hidden units in the MLP
   optimizer: Adam # Optimizer to use for training， can be 'Adam', 'RMSprop', etc.
 
@@ -20,7 +20,7 @@ train:
   episodes: 1*10**4 # Total number of episodes to train
   batch_size: 32
   lr: 0.001
-  save_path: ../checkpoints/dqn_doubleQ.pth # Path to save the final trained model
+  save_path: ../checkpoints/dueling_doubleQ.pth # Path to save the final trained model
 
   #设置目标网络更新频率
   target_update_every_episode: 20 #every 20 episode update the target network
@@ -40,7 +40,7 @@ eval:
   record_video_dir: ../runs/videos/  #the root dir of the recorded videos
   render_mode: human # Whether to render the environment during evaluation
 
-  model_path: ../checkpoints/dqn_doubleQ.pth # Path to load the model being evaluated
+  model_path: ../checkpoints/dueling_doubleQ.pth # Path to load the model being evaluated
 
   #设置greedy策略
   explore_scheduler_eval:
@@ -50,7 +50,7 @@ eval:
     epsilon_end: 0.01
 
 monitor_logging:
-  name: dqn_base_Acrobot-v1_dqn_doubleQ #the monitor name ,used as monitot log dir name
+  name: dqn_base_Acrobot-v1_dueling_doubleQ #the monitor name ,used as monitot log dir name
   log_dir: ../runs/tb_monitor/  #the log_dir for the monior to save logs
   monitor_interval: 1  #thr interval of episode to monitor 
 
