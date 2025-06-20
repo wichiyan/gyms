@@ -71,13 +71,18 @@ class NoisyLinear(nn.Module):
     def reset_noise(self):
         epsilon_in = self._scale_noise(self.in_features)
         epsilon_out = self._scale_noise(self.out_features)
-        self.weight_epsilon.copy_(epsilon_out.outer(epsilon_in))
-        self.bias_epsilon.copy_(epsilon_out)
+
+        # self.weight_epsilon.copy_(epsilon_out.outer(epsilon_in))
+        # self.bias_epsilon.copy_(epsilon_out)
+        
+        self.weight_epsilon = epsilon_out.outer(epsilon_in)
+        self.bias_epsilon = epsilon_out   
 
     #对随机噪声进行缩放
     def _scale_noise(self, size):
         x = torch.randn(size)
         return x.sign() * x.abs().sqrt()
+
 
     def forward(self, input):
         #只有在训练模式下，才会使用噪声参数

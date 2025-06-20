@@ -7,7 +7,7 @@ env:
   id: Acrobot-v1
 
 agent:
-  network_type: dueling # Type of agent, can be 'dqn', 'dueling','dueling_noise'
+  network_type: dqn # Type of agent, can be 'dqn', 'dueling','dueling_noise'
   network_hidden_dim: 128 # Number of hidden units in the MLP
   optimizer: Adam # Optimizer to use for training， can be 'Adam', 'RMSprop', etc.
 
@@ -17,16 +17,22 @@ train:
   record_every_episode: 500 # how many episodes record video
   render_mode: None # Whether to render_mode the environment during evaluation
 
-  episodes: 10000 # Total number of episodes to train
+  episodes: 1*10**4 # Total number of episodes to train
   batch_size: 32
   lr: 0.001
-  save_path: ../checkpoints/dqn.pth # Path to save the final trained model
+  save_path: ../checkpoints/dqn_doubleQ.pth # Path to save the final trained model
 
-explore_shedule_train:
-  policy: exp  #the epsilon decay policy, can be linear , exp，
-  epsilon_start: 1.0
-  epsilon_end: 0.01
-  epsilon_decay: 0.0005 # only used when policy is exp
+  #设置目标网络更新频率
+  target_update_every_episode: 20 #every 20 episode update the target network
+  tau: 0.9 #used when update the target_netowrk, 1.0 means totally  use Q_network to update taeget_network，0.0 means no update with target_network
+
+  #设置greedy策略
+  explore_scheduler_train:
+    use_greedy: True
+    policy: exp  #the epsilon decay policy, can be linear , exp，
+    epsilon_start: 1.0
+    epsilon_end: 0.01
+    epsilon_decay: 0.0005 # only used when policy is exp
 
 eval:
   episodes: 10 # Number of episodes to evaluate the agent
@@ -34,12 +40,17 @@ eval:
   record_video_dir: ../runs/videos/  #the root dir of the recorded videos
   render_mode: human # Whether to render the environment during evaluation
 
-explore_shedule_eval:
-  policy: exp  #the epsilon decay policy, can be linear , exp，
-  epsilon_start: 0.01
-  epsilon_end: 0.01
+  model_path: ../checkpoints/dqn_doubleQ.pth # Path to load the model being evaluated
+
+  #设置greedy策略
+  explore_scheduler_eval:
+    use_greedy: False
+    policy: exp  #the epsilon decay policy, can be linear , exp，
+    epsilon_start: 0.01
+    epsilon_end: 0.01
 
 monitor_logging:
+  name: dqn_base_Acrobot-v1_dqn_doubleQ #the monitor name ,used as monitot log dir name
   log_dir: ../runs/tb_monitor/  #the log_dir for the monior to save logs
   monitor_interval: 1  #thr interval of episode to monitor 
 

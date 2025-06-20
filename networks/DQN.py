@@ -75,6 +75,7 @@ class DuelingNoiseDQN(BaseNetwork):
         )
 
     def forward(self, x):
+            
         x = self.shared(x)
         value = self.value_stream(x)
         advantage = self.advantage_stream(x)
@@ -89,6 +90,24 @@ class DuelingNoiseDQN(BaseNetwork):
             if isinstance(layer, NoisyLinear):
                 layer.reset_noise()
     
+    def train(self):
+        #重新实现网路的train方法，主要是需要将自身、内部的噪声网络的模式进行统一设置
+        #设置网络自身的train模式
+        self.train()
+        #设置网络内所有噪声网络train模式
+        for layer in self.modules():
+            if isinstance(layer, NoisyLinear):
+                layer.train()
+
+    def eval(self):
+        #重新实现网路的eval方法，主要是需要将自身、内部的噪声网络的模式进行统一设置
+        #设置网络自身的eval模式
+        self.eval()
+        #设置网络内所有噪声网络eval模式
+        for layer in self.modules():
+            if isinstance(layer, NoisyLinear):
+                layer.eval()    
+     
 
 if __name__ == "__main__":
     # 测试Dueling_DQN网络结构

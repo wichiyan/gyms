@@ -2,12 +2,12 @@ from torch.utils.tensorboard import SummaryWriter
 from box import Box
 
 class TBMonitor:
-    def __init__(self,env,agent,config,name):
+    def __init__(self,env,agent,config):
         
         self.env = env
         self.agent = agent
         self.config = config
-        self.name = name
+        self.name = config['monitor_logging']['name']
         self.run_info = Box()
         log_dir = config['monitor_logging'].get('log_dir',None)
         self.writer = SummaryWriter(log_dir+self.name)

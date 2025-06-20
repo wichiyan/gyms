@@ -7,22 +7,23 @@ from tqdm import tqdm
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(__dir__, '../')))
 
-from agents.value_based_agents import DQNAgent
+from agents.value_based_agents import DQNAgent,DoubleDQNAgent
 from utils import functions
 from envs.env import Env
 from monitors.tb_monitor import TBMonitor
+import torch
 
 if __name__ == "__main__":
     config = functions.get_config("../configs/value_based/dqn.yaml")
     #创建环境
     env = Env(config,mode='train')
     #创建智能体
-    agent = DQNAgent(env, config)
+    agent = DoubleDQNAgent(env, config)
     agent.train()  #切换模式
     #创建监控器
-    tb_monitor = TBMonitor(env,agent,config,name='dqn_base_Acrobot-v1_dueling-again')
+    tb_monitor = TBMonitor(env,agent,config)
     #开始训练
-    episodes = config['train']['episodes']
+    episodes = eval(config['train']['episodes'])
     for episode in tqdm(range(episodes), colour ='red'):
         #重置环境
         state, _ = env.reset()
@@ -48,6 +49,5 @@ if __name__ == "__main__":
         
     env.close()
     #保存智能体
-    save_path = config['train'].get('save_path', 'dqn_agent.pth')
-    agent.save_network(save_path, weights_only=True)
-
+    save_path = config['train']['save_path']
+    agent.save_network(save_path,weights_only=True)
