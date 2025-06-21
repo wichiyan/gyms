@@ -6,7 +6,7 @@ from .base import NoisyLinear
 #定义经典DQN网络结构
 class DQN(BaseNetwork):
     def __init__(self, state_size, action_size,hidden_dim = 128):
-        super(DQN, self).__init__()
+        super().__init__()
         self.fc1 = nn.Linear(state_size, 128)
         self.fc2 = nn.Linear(128, hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, action_size)
@@ -90,19 +90,21 @@ class DuelingNoiseDQN(BaseNetwork):
             if isinstance(layer, NoisyLinear):
                 layer.reset_noise()
     
-    def train(self):
+    #此处设计成传入mode，主要是torch.nn内部实现机制所限
+    def train(self, mode=True):
         #重新实现网路的train方法，主要是需要将自身、内部的噪声网络的模式进行统一设置
         #设置网络自身的train模式
-        self.train()
+        super().train(mode)
+        
         #设置网络内所有噪声网络train模式
         for layer in self.modules():
             if isinstance(layer, NoisyLinear):
                 layer.train()
-
+                
     def eval(self):
         #重新实现网路的eval方法，主要是需要将自身、内部的噪声网络的模式进行统一设置
         #设置网络自身的eval模式
-        self.eval()
+        super().eval()
         #设置网络内所有噪声网络eval模式
         for layer in self.modules():
             if isinstance(layer, NoisyLinear):

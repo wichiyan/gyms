@@ -23,7 +23,7 @@ class exploration_rate_scheduler:
         Returns:
             float: The calculated exploration rate.
         """
-        if self.policy == 'exp' or self.policy == 'exponential':
+        if self.policy == 'exp' :
             epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * np.exp(-self.epsilon_decay * episode)
             epsilon = max(self.epsilon_end,epsilon)
             return epsilon

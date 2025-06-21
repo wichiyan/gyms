@@ -6,7 +6,7 @@ from gymnasium.wrappers import RecordVideo
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(__dir__, '../')))
 
-from agents.value_based_agents import DQNAgent
+from agents.value_based_agents import DQNAgent,DoubleDQNAgent
 from utils import functions
 from envs.env import Env
 
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     #创建环境
     env = Env(config,mode='eval')
     #创建智能体
-    agent = DQNAgent(env, config)
+    agent = DoubleDQNAgent(env, config)
     agent.eval()
     agent.load_network(config['eval']['model_path'], weights_only=True)
     

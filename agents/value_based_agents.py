@@ -3,8 +3,9 @@ import torch
 import os
 from torch import nn
 import numpy as np
-from .base_agent import BaseAgent
-from networks.dqn import DQN, DuelingDQN, DuelingNoiseDQN
+from agents.base_agent import BaseAgent
+from networks.dqn import *
+from networks.q_table import *
 from utils.schedulers import exploration_rate_scheduler
 
 class DQNAgent(BaseAgent):
@@ -14,8 +15,9 @@ class DQNAgent(BaseAgent):
         self.config = config
         self.use_greedy = self._use_greedy()
         self._init_network()
-        self.explore_scheduler_train = exploration_rate_scheduler(**config.get('explore_scheduler_train', {}))
-        self.explore_scheduler_eval = exploration_rate_scheduler(**config.get('explore_scheduler_eval', {}))
+        self.explore_scheduler_train = exploration_rate_scheduler(**config['train'].get('explore_scheduler_train', {}))
+        self.explore_scheduler_eval = exploration_rate_scheduler(**config['eval'].get('explore_scheduler_eval', {}))
+        self.training = False
 
         #记录agent训练和验证时的信息
         self.run_info = {
@@ -36,13 +38,13 @@ class DQNAgent(BaseAgent):
         #如果不使用greedy策略，则直接将探索率设置为0
         if not self.use_greedy:
             self.explore_rate = 0
-        
-        #根据模型是在训练还是测试阶段，使用不同的探索机制
-        if self.Q_network.training:
-            self.explore_rate = self.explore_scheduler_train.get_exploration_rate(episode,episodes)
         else :
-            self.explore_rate = self.explore_scheduler_eval.get_exploration_rate(episode,episodes)
-        
+            #根据模型是在训练还是测试阶段，使用不同的探索机制
+            if self.Q_network.training:
+                self.explore_rate = self.explore_scheduler_train.get_exploration_rate(episode,episodes)
+            else :
+                self.explore_rate = self.explore_scheduler_eval.get_exploration_rate(episode,episodes)
+            
         #随机选择动作
         if np.random.rand() < self.explore_rate:
             return self.env.action_space.sample()  # 探索
@@ -51,25 +53,26 @@ class DQNAgent(BaseAgent):
         
     #更新策略网络    
     def update(self, state, action, reward, next_state, done):
-        
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-        next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0).to(self.device)
-        action_tensor = torch.tensor(action).to(self.device)
-        reward_tensor = torch.tensor(reward).to(self.device)
-        done_tensor = torch.tensor(done, dtype=torch.float32).to(self.device)
+        #以下均假设传入的数据第一维是批次
+        state_tensor = torch.tensor(state,dtype=torch.float32).reshape((-1,1)).to(self.device)
+        action_tensor = torch.tensor(action,dtype=torch.int64).reshape((-1,1)).to(self.device)
+        reward_tensor = torch.tensor(reward).reshape((-1,1)).to(self.device)
+        next_state_tensor = torch.tensor(next_state,dtype=torch.float32).reshape((-1,1)).to(self.device)
+        done_tensor = torch.tensor(done, dtype=torch.float32).reshape((-1,1)).to(self.device)
 
         # 计算当前Q值，如果是噪声网络，先重置噪声
         if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
-        current_q_values = self.Q_network(state_tensor)
-        current_q_value = current_q_values[0][action_tensor]
+        current_q_values = self.Q_network(state_tensor) #输出为N*A
+        current_q_value = current_q_values.gather(index=action_tensor,dim=1) #输出为N*1
         
         # 计算目标Q值
         with torch.no_grad():
             #如果是噪声网络，先重置噪声
             if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
-            next_q_values = self.Q_network(next_state_tensor)
-            max_next_q_value = torch.max(next_q_values).item()
-            target_q_value = reward_tensor + (1 - done_tensor) * 0.99 * max_next_q_value
+            next_q_values = self.Q_network(next_state_tensor) #输出为N*A
+            max_next_q_value = torch.max(next_q_values,dim=1)[0] #输出为N*1
+            discount_rate = self.config['train']['reward_discount_rate']
+            target_q_value = reward_tensor + (1 - done_tensor) * discount_rate * max_next_q_value
         # 计算损失
         loss = self.criterion(current_q_value, target_q_value.float())
 
@@ -85,7 +88,7 @@ class DQNAgent(BaseAgent):
 
     #判断是否使用greedy策略
     def _use_greedy(self):
-        if self.training:
+        if self.env.mode == 'train':
             return self.config['train']['explore_scheduler_train']['use_greedy']
         else:
             return self.config['eval']['explore_scheduler_eval']['use_greedy']
@@ -95,9 +98,8 @@ class DQNAgent(BaseAgent):
         state_tensor = torch.tensor(state,dtype=torch.float32).unsqueeze(0).to(self.device)
         with torch.no_grad():
             q_values = self.Q_network(state_tensor)
-        return torch.argmax(q_values).item() 
+        return torch.argmax(q_values).item()
 
-    
     #根据网络类型和状态、动作空间大小设置网络、优化器及损失函数
     def _init_network(self):
         #设置网络类型
@@ -114,8 +116,9 @@ class DQNAgent(BaseAgent):
         self.Q_network.to(self.device)
 
     def _get_network(self):
-        
-        state_size = self.env.observation_space.shape[0]
+        #兼容不同环境
+        observe_space = self.env.observation_space
+        state_size = observe_space.shape[0] if observe_space.shape else observe_space.n
         action_size = self.env.action_space.n
         agent_config = self.config.get('agent', {})
         self.network_type = agent_config.get('network_type', 'dqn')
@@ -127,8 +130,13 @@ class DQNAgent(BaseAgent):
             return DuelingDQN(state_size, action_size, hidden_dim=hidden_dim)
         elif self.network_type == 'dueling_noise':
             return DuelingNoiseDQN(state_size, action_size, hidden_dim=hidden_dim)
+        elif self.network_type == 'qtable':
+            return QTable(state_size,action_size)
+        elif self.network_type == 'qtable_embed':
+            return QTableEmbedding(state_size,action_size)
         else:
-            raise ValueError(f"Unknown network type: {self.network_type},can be dqn,dueling,dueling_noise")
+            raise ValueError(f"Unknown network type: {self.network_type},\
+                             can be dqn,dueling,dueling_noise,,qtable,qtable_embed")
         
         
     def save_network(self, path, weights_only=True):
@@ -155,33 +163,34 @@ class DoubleDQNAgent(DQNAgent):
 
     #更新策略网络    
     def update(self, state, action, reward, next_state, done):
-        #先将数据转换成tensor
-        state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-        next_state_tensor = torch.FloatTensor(next_state).unsqueeze(0).to(self.device)
-        action_tensor = torch.tensor(action).to(self.device)
+        #以下均假设传入的数据第一维是批次
+        state_tensor = torch.tensor(state,dtype=torch.float32).to(self.device)
+        action_tensor = torch.tensor(action,dtype=torch.int).to(self.device)
         reward_tensor = torch.tensor(reward).to(self.device)
+        next_state_tensor = torch.tensor(next_state,dtype=torch.float32).to(self.device)
         done_tensor = torch.tensor(done, dtype=torch.float32).to(self.device)
 
         # 使用Q网络计算q(s_t,a_t)，如果噪声网络，先重置噪声
         if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
-        current_q_values = self.Q_network(state_tensor)
-        current_q_value = current_q_values[0][action_tensor]
+        current_q_values = self.Q_network(state_tensor) #输出为N*A
+        current_q_value = current_q_values.gather(index=action_tensor,dim=1) #输出为N*1
         
         # 计算目标Q值
         with torch.no_grad():
-            #先使用Q网络，算出s_t+1时最大动作
+            #1、先使用Q网络，算出s_t+1时最大动作
             if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
-            max_action = self._get_max_action(next_state_tensor)
+            max_action = self.Q_network(next_state_tensor) #输出为N*A
             
-            #然后使用目标网络，算出在s_t+1时，以上动作的Q值，如果是噪声网络，就先重置噪声
+            #2、然后使用目标网络，算出在s_t+1时，以上动作的Q值，如果是噪声网络，就先重置噪声
             if self.network_type == 'dueling_noise' : self.target_network.reset_noise()
             next_q_values = self.target_network(next_state_tensor)
-            max_next_q_value = next_q_values[:,max_action].item()
+            max_next_q_value = next_q_values.gather(index=max_action,dim=1) #输出为N*1
             
-            #计算TD目标
-            target_q_value = reward_tensor + (1 - done_tensor) * 0.99 * max_next_q_value
+            #3、计算TD目标
+            discount_rate = self.config['train']['reward_discount_rate']
+            target_q_value = reward_tensor + (1 - done_tensor) * discount_rate * max_next_q_value
             
-        # 计算损失
+        # 4、计算损失
         loss = self.criterion(current_q_value, target_q_value.float())
 
         # 记录损失
@@ -231,5 +240,4 @@ class DoubleDQNAgent(DQNAgent):
         self.training = True
         self.Q_network.train()
         self.target_network.eval()
-
 

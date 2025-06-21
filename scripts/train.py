@@ -18,7 +18,7 @@ if __name__ == "__main__":
     #创建环境
     env = Env(config,mode='train')
     #创建智能体
-    agent = DoubleDQNAgent(env, config)
+    agent = DQNAgent(env, config)
     agent.train()  #切换模式
     #创建监控器
     tb_monitor = TBMonitor(env,agent,config)
@@ -30,11 +30,13 @@ if __name__ == "__main__":
         done = False
         losses = []
         while not done:
-            #选择动作
+            #agent选择动作
             action = agent.select_action(state, episode, episodes)
-            #执行动作
+            #环境执行动作
             next_state, reward, done, info = env.step(action)
-            #智能体更新策略，更新探索率
+            #agent收集经验
+            
+            #agent学习，更新策略，更新探索率
             loss = agent.update(state, action, reward, next_state, done)
             losses.append(loss)
             #切换状态

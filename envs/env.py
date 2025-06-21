@@ -15,6 +15,7 @@ class Env:
         super().__init__()
         
         self.config = config
+        self.mode = mode
         
         assert mode in ('train','eval'), f'mode must be one of  train or eval, not {mode}'
         env_kwagrs = copy.deepcopy(config['env'])

@@ -13,7 +13,7 @@ class BaseNetwork(nn.Module,ABC):
     @abstractmethod
     def forward(self, x):
         pass
-
+    
     def save(self, path, weights_only=True):
         if not path.endswith('.pth'):
             path += '.pth'

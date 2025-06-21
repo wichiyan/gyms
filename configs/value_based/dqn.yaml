@@ -4,12 +4,19 @@ global:
   device: auto # Device to run the training on, can be 'cpu' or 'cuda' or 'auto'
 
 env:
-  id: Acrobot-v1
+  id: FrozenLake-v1
+  map_name: 8x8
+  is_slippery: False
 
 agent:
-  network_type: dueling # Type of agent, can be 'dqn', 'dueling','dueling_noise'
+  network_type: qtable # Type of agent, can be 'dqn', 'dueling','dueling_noise','qtable','qtable_embed'
   network_hidden_dim: 128 # Number of hidden units in the MLP
-  optimizer: Adam # Optimizer to use for training， can be 'Adam', 'RMSprop', etc.
+  optimizer: SGD # Optimizer to use for training， can be Adam, RMSprop, SGD, etc.
+
+  #经验回放配置项
+  experience_replay:
+    use_replay: True #whether to use PER
+    TD_steps: 1 #how many TD steps to learn evey time
 
 train:
   record_video: True # Whether to record videos of the environment
@@ -17,10 +24,12 @@ train:
   record_every_episode: 500 # how many episodes record video
   render_mode: None # Whether to render_mode the environment during evaluation
 
-  episodes: 1*10**4 # Total number of episodes to train
+  #学习过程相关配置
+  episodes: 2*10**4 # Total number of episodes to train
   batch_size: 32
   lr: 0.001
-  save_path: ../checkpoints/dueling_doubleQ.pth # Path to save the final trained model
+  reward_discount_rate: 0.99 #the descount rate to calculate the TD target
+  save_path: ../checkpoints/FrozenLake_QTabel_with_greedy_no_slippery.pth # Path to save the final trained model
 
   #设置目标网络更新频率
   target_update_every_episode: 20 #every 20 episode update the target network
@@ -29,10 +38,10 @@ train:
   #设置greedy策略
   explore_scheduler_train:
     use_greedy: True
-    policy: exp  #the epsilon decay policy, can be linear , exp，
+    policy: linear  #the epsilon decay policy, can be linear , exp，
     epsilon_start: 1.0
     epsilon_end: 0.01
-    epsilon_decay: 0.0005 # only used when policy is exp
+    epsilon_decay: 0.00001 # only used when policy is exp
 
 eval:
   episodes: 10 # Number of episodes to evaluate the agent
@@ -40,7 +49,7 @@ eval:
   record_video_dir: ../runs/videos/  #the root dir of the recorded videos
   render_mode: human # Whether to render the environment during evaluation
 
-  model_path: ../checkpoints/dueling_doubleQ.pth # Path to load the model being evaluated
+  model_path: ../checkpoints/FrozenLake_QTabel_with_greedy_no_slippery.pth # Path to load the model being evaluated
 
   #设置greedy策略
   explore_scheduler_eval:
@@ -50,7 +59,7 @@ eval:
     epsilon_end: 0.01
 
 monitor_logging:
-  name: dqn_base_Acrobot-v1_dueling_doubleQ #the monitor name ,used as monitot log dir name
+  name: FrozenLake_QTable_with_greedy_no_slippery #the monitor name ,used as monitot log dir name
   log_dir: ../runs/tb_monitor/  #the log_dir for the monior to save logs
   monitor_interval: 1  #thr interval of episode to monitor 
 
