@@ -18,7 +18,7 @@ if __name__ == "__main__":
     #创建环境
     env = Env(config,mode='train')
     #创建智能体
-    agent = DQNAgent(env, config)
+    agent = DoubleDQNAgent(env, config)
     agent.train()  #切换模式
     #创建监控器
     tb_monitor = TBMonitor(env,agent,config)

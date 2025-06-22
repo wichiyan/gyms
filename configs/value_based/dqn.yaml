@@ -30,7 +30,7 @@ train:
   batch_size: 5
   lr: 0.001
   reward_discount_rate: 0.99 #the descount rate to calculate the TD target
-  save_path: ../checkpoints/FrozenLake_QTabel_with_greedy_no_slippery_norm_replayt.pth # Path to save the final trained model
+  save_path: ../checkpoints/FrozenLake_QTabel_double_with_greedy_no_slippery_norm_replay.pth # Path to save the final trained model
 
   #设置目标网络更新频率
   target_update_every_episode: 20 #every 20 episode update the target network
@@ -50,7 +50,7 @@ eval:
   record_video_dir: ../runs/videos/  #the root dir of the recorded videos
   render_mode: human # Whether to render the environment during evaluation
 
-  model_path: ../checkpoints/FrozenLake_QTabel_with_greedy_no_slippery_norm_replay.pth # Path to load the model being evaluated
+  model_path: ../checkpoints/FrozenLake_QTabel_double__with_greedy_no_slippery_norm_replay.pth # Path to load the model being evaluated
 
   #设置greedy策略
   explore_scheduler_eval:
@@ -61,7 +61,7 @@ eval:
 
 monitor_logging:
   use_monitor: True # Whether to use monitor to record the training process
-  name: FrozenLake_QTable_with_greedy_no_slippery_norm_replay #the monitor name ,used as monitot log dir name
+  name: FrozenLake_QTable_double_with_greedy_no_slippery_norm_replay #the monitor name ,used as monitot log dir name
   log_dir: ../runs/tb_monitor/  #the log_dir for the monior to save logs
   monitor_interval: 1  #thr interval of episode to monitor 
 

@@ -146,7 +146,7 @@ class DQNAgent(BaseAgent):
     def _init_buffer(self):
         agent_config = self.config.get('agent', {})
         self.buffer_type = agent_config['experience_replay'].get('buffer_type', 'norm')
-        
+
         if self.buffer_type == 'norm':
             self.buffer = NormBuffer(self.config)
         
@@ -174,33 +174,41 @@ class DQNAgent(BaseAgent):
 class DoubleDQNAgent(DQNAgent):
 
     #更新策略网络    
-    def update(self, state, action, reward, next_state, done):
-        #以下均假设传入的数据第一维是批次
-        state_tensor = torch.tensor(state,dtype=torch.float32).to(self.device)
-        action_tensor = torch.tensor(action,dtype=torch.int).to(self.device)
-        reward_tensor = torch.tensor(reward).to(self.device)
-        next_state_tensor = torch.tensor(next_state,dtype=torch.float32).to(self.device)
-        done_tensor = torch.tensor(done, dtype=torch.float32).to(self.device)
+    def update(self):
+            #首先从经验池选择一批次经验数据
+        #如果经验池中经验数量不足，则直接返回
+        if len(self.buffer) < self.config['train']['batch_size']:
+            return 0
+        
+        #从经验池中随机选择一批次经验数据
+        #抽取出经验数据中的状态、动作、奖励、下一个状态、是否结束，每一个都是N*1形状
+        state,action,reward,next_state,done = self.buffer.sample(self.config['train']['batch_size'])
+
+        # 计算当前Q值，如果是噪声网络，先重置噪声
+        if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
+        current_q_values = self.Q_network(state) #输出为N*A
+        current_q_value = current_q_values.gather(index=action,dim=1) #输出为N*1
 
         # 使用Q网络计算q(s_t,a_t)，如果噪声网络，先重置噪声
         if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
-        current_q_values = self.Q_network(state_tensor) #输出为N*A
-        current_q_value = current_q_values.gather(index=action_tensor,dim=1) #输出为N*1
+        current_q_values = self.Q_network(state) #输出为N*A
+        current_q_value = current_q_values.gather(index=action,dim=1) #输出为N*1
         
         # 计算目标Q值
         with torch.no_grad():
-            #1、先使用Q网络，算出s_t+1时最大动作
+            #1、先使用Q网络，算出s_t+1时最大Q值对应动作
             if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
-            max_action = self.Q_network(next_state_tensor) #输出为N*A
+            next_q_values_Q = self.Q_network(next_state) #输出为N*A
+            max_action = torch.argmax(next_q_values_Q,dim=1,keepdim=True) #输出为N*1
             
             #2、然后使用目标网络，算出在s_t+1时，以上动作的Q值，如果是噪声网络，就先重置噪声
             if self.network_type == 'dueling_noise' : self.target_network.reset_noise()
-            next_q_values = self.target_network(next_state_tensor)
-            max_next_q_value = next_q_values.gather(index=max_action,dim=1) #输出为N*1
+            next_q_values_target = self.target_network(next_state) #输出为N*A
+            max_next_q_value = next_q_values_target.gather(index=max_action,dim=1) #输出为N*1
             
             #3、计算TD目标
             discount_rate = self.config['train']['reward_discount_rate']
-            target_q_value = reward_tensor + (1 - done_tensor) * discount_rate * max_next_q_value
+            target_q_value = reward + (1 - done) * discount_rate * max_next_q_value
             
         # 4、计算损失
         loss = self.criterion(current_q_value, target_q_value.float())
