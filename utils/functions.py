@@ -42,3 +42,26 @@ def get_config(yaml_path, default_config=None):
     config = Box(config)
     
     return config
+
+
+def get_device(config):
+    """
+    Get the device to use for training.
+    
+    Args:
+        config (dict): Configuration.
+        
+    Returns:
+        torch.device: The device to use for training.
+    """
+    device = config['global'].get('device', 'auto')
+    if device == 'auto':
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    elif device == 'cpu':
+        device = torch.device("cpu")
+    elif device == 'cuda':
+        device = torch.device("cuda")
+    else:
+        raise ValueError(f"Unknown device type: {device}")
+    
+    return device

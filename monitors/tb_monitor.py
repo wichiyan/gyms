@@ -7,15 +7,23 @@ class TBMonitor:
         self.env = env
         self.agent = agent
         self.config = config
+        self.use_monitor =  self.config['monitor_logging'].get('use_monitor',False)
         self.name = config['monitor_logging']['name']
         self.run_info = Box()
-        log_dir = config['monitor_logging'].get('log_dir',None)
-        self.writer = SummaryWriter(log_dir+self.name)
+        
+        #如果进行监控，才创建对应目录
+        if self.use_monitor:
+            log_dir = config['monitor_logging'].get('log_dir',None)
+            self.writer = SummaryWriter(log_dir+self.name)
 
     def monitor(self):
         #每一个episode结束后，此处需要统一记录以下信息：
         #1、环境返回的info，里面包含当前episode的累计奖励、总步长、总时间
         #2、agent的探索率
+        #如果不使用monitor，则直接返回
+        if not self.use_monitor:
+            return
+        
         monitot_interval = self.config['monitor_logging'].get('monitor_interval',1)
         
         current_episode = self.agent.episode

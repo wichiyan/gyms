@@ -7,6 +7,7 @@ from agents.base_agent import BaseAgent
 from networks.dqn import *
 from networks.q_table import *
 from utils.schedulers import exploration_rate_scheduler
+from buffers.buffers import *
 
 class DQNAgent(BaseAgent):
     def __init__(self, env ,config, **kwargs):
@@ -15,6 +16,7 @@ class DQNAgent(BaseAgent):
         self.config = config
         self.use_greedy = self._use_greedy()
         self._init_network()
+        self._init_buffer()
         self.explore_scheduler_train = exploration_rate_scheduler(**config['train'].get('explore_scheduler_train', {}))
         self.explore_scheduler_eval = exploration_rate_scheduler(**config['eval'].get('explore_scheduler_eval', {}))
         self.training = False
@@ -52,27 +54,29 @@ class DQNAgent(BaseAgent):
             return self._get_max_action(state)
         
     #更新策略网络    
-    def update(self, state, action, reward, next_state, done):
-        #以下均假设传入的数据第一维是批次
-        state_tensor = torch.tensor(state,dtype=torch.float32).reshape((-1,1)).to(self.device)
-        action_tensor = torch.tensor(action,dtype=torch.int64).reshape((-1,1)).to(self.device)
-        reward_tensor = torch.tensor(reward).reshape((-1,1)).to(self.device)
-        next_state_tensor = torch.tensor(next_state,dtype=torch.float32).reshape((-1,1)).to(self.device)
-        done_tensor = torch.tensor(done, dtype=torch.float32).reshape((-1,1)).to(self.device)
+    def update(self):
+        #首先从经验池选择一批次经验数据
+        #如果经验池中经验数量不足，则直接返回
+        if len(self.buffer) < self.config['train']['batch_size']:
+            return 0
+        
+        #从经验池中随机选择一批次经验数据
+        #抽取出经验数据中的状态、动作、奖励、下一个状态、是否结束，每一个都是N*1形状
+        state,action,reward,next_state,done = self.buffer.sample(self.config['train']['batch_size'])
 
         # 计算当前Q值，如果是噪声网络，先重置噪声
         if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
-        current_q_values = self.Q_network(state_tensor) #输出为N*A
-        current_q_value = current_q_values.gather(index=action_tensor,dim=1) #输出为N*1
+        current_q_values = self.Q_network(state) #输出为N*A
+        current_q_value = current_q_values.gather(index=action,dim=1) #输出为N*1
         
         # 计算目标Q值
         with torch.no_grad():
             #如果是噪声网络，先重置噪声
             if self.network_type == 'dueling_noise' : self.Q_network.reset_noise()
-            next_q_values = self.Q_network(next_state_tensor) #输出为N*A
-            max_next_q_value = torch.max(next_q_values,dim=1)[0] #输出为N*1
+            next_q_values = self.Q_network(next_state) #输出为N*A
+            max_next_q_value = torch.max(next_q_values,dim=1,keepdim=True)[0] #输出为N*1
             discount_rate = self.config['train']['reward_discount_rate']
-            target_q_value = reward_tensor + (1 - done_tensor) * discount_rate * max_next_q_value
+            target_q_value = reward + (1 - done) * discount_rate * max_next_q_value
         # 计算损失
         loss = self.criterion(current_q_value, target_q_value.float())
 
@@ -138,7 +142,15 @@ class DQNAgent(BaseAgent):
             raise ValueError(f"Unknown network type: {self.network_type},\
                              can be dqn,dueling,dueling_noise,,qtable,qtable_embed")
         
+    #根据配置文件，初始化buffer
+    def _init_buffer(self):
+        agent_config = self.config.get('agent', {})
+        self.buffer_type = agent_config['experience_replay'].get('buffer_type', 'norm')
         
+        if self.buffer_type == 'norm':
+            self.buffer = NormBuffer(self.config)
+        
+    
     def save_network(self, path, weights_only=True):
         """
         Save the current state of the Q-network to a file.

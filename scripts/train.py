@@ -35,9 +35,9 @@ if __name__ == "__main__":
             #环境执行动作
             next_state, reward, done, info = env.step(action)
             #agent收集经验
-            
+            agent.buffer.collect((state, action, reward, next_state, done))
             #agent学习，更新策略，更新探索率
-            loss = agent.update(state, action, reward, next_state, done)
+            loss = agent.update()
             losses.append(loss)
             #切换状态
             state = next_state

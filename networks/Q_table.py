@@ -6,7 +6,7 @@ from networks.base import BaseNetwork
 class QTable(BaseNetwork):
     def __init__(self, state_size, action_size):
         super().__init__()
-        self.table = nn.Parameter(torch.randn(state_size,action_size)/500)
+        self.table = nn.Parameter(torch.rand(state_size,action_size)/500)
 
     def forward(self, state):
         #确保state是整数型，因为是对表格进行索引
