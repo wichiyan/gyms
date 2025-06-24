@@ -63,6 +63,7 @@ class SumTree:
                 parent_idx = right_child_idx
         
         data_idx = leaf_idx - self.capacity + 1
+        index, priority, data = self.data[data_idx], self.tree[leaf_idx], self.data[data_idx]
         return leaf_idx, self.tree[leaf_idx], self.data[data_idx]
     
     def total_priority(self):
@@ -77,7 +78,7 @@ class BaseBuffer:
         self.device = get_device(config)
         
     @abstractmethod
-    def collect(self, experience):
+    def add(self, experience):
         pass
     
     @abstractmethod

@@ -10,7 +10,7 @@ class QTable(BaseNetwork):
 
     def forward(self, state):
         #确保state是整数型，因为是对表格进行索引
-        state = state.to(torch.int) #将输入state，由形状N,1，变为N
+        state = state.to(torch.int) #state为N*D，且因为Qtable需要整型，所以转换下
         out = self.table[state].squeeze(dim=1)  
         return out   #输出为N，A
 

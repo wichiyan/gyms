@@ -11,14 +11,13 @@ from agents.value_based_agents import DQNAgent,DoubleDQNAgent
 from utils import functions
 from envs.env import Env
 from monitors.tb_monitor import TBMonitor
-import torch
 
 if __name__ == "__main__":
     config = functions.get_config("../configs/value_based/dqn.yaml")
     #创建环境
     env = Env(config,mode='train')
     #创建智能体
-    agent = DoubleDQNAgent(env, config)
+    agent = DQNAgent(env, config)
     agent.train()  #切换模式
     #创建监控器
     tb_monitor = TBMonitor(env,agent,config)
@@ -34,8 +33,8 @@ if __name__ == "__main__":
             action = agent.select_action(state, episode, episodes)
             #环境执行动作
             next_state, reward, done, info = env.step(action)
-            #agent收集经验
-            agent.buffer.collect((state, action, reward, next_state, done))
+            #agent收集经验，如果是优先级经验回放，优先级计算逻辑在buffer中
+            agent.collect_experience(state, action, reward, next_state, done)
             #agent学习，更新策略，更新探索率
             loss = agent.update()
             losses.append(loss)

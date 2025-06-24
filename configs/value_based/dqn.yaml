@@ -12,12 +12,17 @@ agent:
   network_type: qtable # Type of agent, can be 'dqn', 'dueling','dueling_noise','qtable','qtable_embed'
   network_hidden_dim: 128 # Number of hidden units in the MLP
   optimizer: SGD # Optimizer to use for training， can be Adam, RMSprop, SGD, etc.
+  use_multi_step: True #whether to use multi-step learning
+  TD_steps: 3 #how many TD steps to learn evey time
 
   #经验回放配置项
   experience_replay:
-    buffer_type: norm #the type of buffer, can be norm, priority, multi_TD_priority
-    buffer_size: 5 #the capacity of the replay buffer, or the memory size of the replay buffer
-    TD_steps: 1 #how many TD steps to learn evey time
+    buffer_type: priority #the type of buffer, can be norm, priority
+    buffer_size: 10000 #the capacity of the replay buffer, or the memory size of the replay buffer
+    alpha: 0.2 #the priority parameter alpha，control the priority of each sample，0.0 means no priority
+    beta: 0.4 # the init priority weight 
+    beta_increment: 0.001
+
 
 train:
   record_video: True # Whether to record videos of the environment
@@ -27,10 +32,10 @@ train:
 
   #学习过程相关配置
   episodes: 2*10**4 # Total number of episodes to train
-  batch_size: 5
+  batch_size: 4
   lr: 0.001
   reward_discount_rate: 0.99 #the descount rate to calculate the TD target
-  save_path: ../checkpoints/FrozenLake_QTabel_double_with_greedy_no_slippery_norm_replay.pth # Path to save the final trained model
+  save_path: ../checkpoints/FrozenLake_QTabel_double_with_greedy_slippery_prioroty_replay_1.0.pth # Path to save the final trained model
 
   #设置目标网络更新频率
   target_update_every_episode: 20 #every 20 episode update the target network
@@ -50,7 +55,7 @@ eval:
   record_video_dir: ../runs/videos/  #the root dir of the recorded videos
   render_mode: human # Whether to render the environment during evaluation
 
-  model_path: ../checkpoints/FrozenLake_QTabel_double__with_greedy_no_slippery_norm_replay.pth # Path to load the model being evaluated
+  model_path: ../checkpoints/FrozenLake_QTabel_double__with_greedy_slippery_prioroty_replay_1.0.pth # Path to load the model being evaluated
 
   #设置greedy策略
   explore_scheduler_eval:
@@ -61,7 +66,7 @@ eval:
 
 monitor_logging:
   use_monitor: True # Whether to use monitor to record the training process
-  name: FrozenLake_QTable_double_with_greedy_no_slippery_norm_replay #the monitor name ,used as monitot log dir name
+  name: FrozenLake_QTable_double_with_greedy_slippery_prioroty_replay_1.0 #the monitor name ,used as monitot log dir name
   log_dir: ../runs/tb_monitor/  #the log_dir for the monior to save logs
   monitor_interval: 1  #thr interval of episode to monitor 
 

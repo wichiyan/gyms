@@ -6,6 +6,7 @@ from networks.base import BaseNetwork
 from utils.functions import get_device
 
 #定义agent基类，主要实现公共方法，并定义公共接口
+#核心方法包括动作选择、经验收集、模型更新等
 class BaseAgent(ABC):
     @abstractmethod
     def __init__(self,config,**kwargs):
@@ -13,6 +14,10 @@ class BaseAgent(ABC):
     
     @abstractmethod
     def select_action(self, state):
+        pass
+    
+    @abstractmethod
+    def collect_experience(self, state, action, reward, next_state, done):
         pass
     
     @abstractmethod
